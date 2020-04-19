@@ -2,8 +2,22 @@
 name = "maroon"
 version = "0.1.0"
 authors = ["grinshpon <grinshpondaniel@protonmail.com>"]
+description = "Scheme-inspired lisp that compiles to Lua"
+repository = "https://github.com/Grinshpon/Maroon"
+license = "MIT"
+readme = "README.md"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+include = [
+  "Cargo.toml",
+  "README*",
+  "LICENSE*",
+  "src/**/*",
+]
+
+[[bin]]
+name = "maroon"
+path = "src/main.rs"
 
 [dependencies]
+
