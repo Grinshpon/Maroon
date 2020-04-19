@@ -5,9 +5,9 @@ use crate::lexer::*;
 #[derive(Debug)]
 pub enum ParseError {
   Unknown(i32), // here for debug purposes, should never be seen normally
-  MissingCloseParen,
-  ExtraCloseParen,
-  UnimplementedFeature,
+  MissingCloseParen(usize),
+  ExtraCloseParen(usize),
+  UnimplementedFeature(usize),
 }
 
 const keywords: &'static [&'static str] = &[
@@ -21,16 +21,18 @@ const builtins: &'static [&'static str] = &[
 
 #[derive(Debug, Clone)]
 pub enum SExpr {
-  Int(i64),
-  Float(f64),
-  Bool(bool),
-  Str(String),
-  Char(String),
-  Ident(String),
-  Symbol(String),
-  List(Vec<Box<SExpr>>), // A list that is treated as a list/table/vector: [ ... ]
-  Stmt(Vec<Box<SExpr>>), // A list that is treated as a function invocation: ( ... )
-  Func(Box<SExpr>,Box<SExpr>),
+  //AST
+  Int(usize, i64),
+  Float(usize, f64),
+  Bool(usize, bool),
+  Str(usize, String),
+  Char(usize, String),
+  Ident(usize, String),
+  Symbol(usize, String),
+  List(usize, Vec<Box<SExpr>>), // A list that is treated as a list/table/vector: [ ... ]
+  Stmt(usize, Vec<Box<SExpr>>), // A list that is treated as a function invocation: ( ... )
+  //SAST
+  Func(usize, Box<SExpr>,Box<SExpr>),
   Module(Vec<Box<SExpr>>), // A list representing a program module
   Main(Vec<Box<SExpr>>), // A list representing the main module
   EOF,
@@ -39,13 +41,13 @@ pub enum SExpr {
 impl SExpr {
   fn is_ident(&self) -> bool {
     match self {
-      Ident(_) => true,
+      Ident(_,_) => true,
       _ => false,
     }
   }
   fn get_ident(&self) -> &str {
     match self {
-      Ident(id) => id.as_str(),
+      Ident(_,id) => id.as_str(),
       _ => panic!("Not ident"),
     }
   }
@@ -74,17 +76,17 @@ where I: Iterator<Item=&'a Token>,
 {
   let sexpr = {match tokens.next() {
     Some(token) => match token {
-      Token::OPAREN => parse_stmt(tokens), //stmt_parse(parse_stmt(tokens)),
-      Token::OBRACKET => parse_list(tokens),
-      Token::INT(n) => Ok(Int(*n)),
-      Token::FLOAT(n) => Ok(Float(*n)),
-      Token::IDENT(i) => Ok(Ident(i.to_string())), // parse_ident (var or fn or whatever)
-      Token::BOOL(b) => Ok(Bool(*b)),
-      Token::STRLIT(s) => Ok(Str(s.to_string())),
-      Token::CHLIT(c) => Ok(Char(c.to_string())),
-      Token::SYMBOL(s) => Ok(Symbol(s.to_string())),
-      Token::CPAREN => Err(ParseError::ExtraCloseParen),
-      Token::CBRACKET => Err(ParseError::ExtraCloseParen),
+      Token::OPAREN(line) => parse_stmt(*line, tokens), //stmt_parse(parse_stmt(tokens)),
+      Token::OBRACKET(line) => parse_list(*line, tokens),
+      Token::INT(line, n) => Ok(Int(*line, *n)),
+      Token::FLOAT(line, n) => Ok(Float(*line, *n)),
+      Token::IDENT(line, i) => Ok(Ident(*line, i.to_string())), // parse_ident (var or fn or whatever)
+      Token::BOOL(line, b) => Ok(Bool(*line, *b)),
+      Token::STRLIT(line, s) => Ok(Str(*line, s.to_string())),
+      Token::CHLIT(line, c) => Ok(Char(*line, c.to_string())),
+      Token::SYMBOL(line, s) => Ok(Symbol(*line, s.to_string())),
+      Token::CPAREN(line) => Err(ParseError::ExtraCloseParen(*line)),
+      Token::CBRACKET(line) => Err(ParseError::ExtraCloseParen(*line)),
       _ => Err(ParseError::Unknown(1)),
     },
     None => Ok(EOF),
@@ -92,80 +94,80 @@ where I: Iterator<Item=&'a Token>,
   Ok(first_analysis(sexpr)?)
 }
 
-fn parse_list<'a,I>(tokens: &mut Peekable<I>) -> PResult
+fn parse_list<'a,I>(line: usize, tokens: &mut Peekable<I>) -> PResult
 where I: Iterator<Item=&'a Token>,
 {
   let mut list: Vec<Box<SExpr>> = vec![];
   loop {
     match tokens.peek() {
-      Some(Token::CBRACKET) => {
+      Some(Token::CBRACKET(line)) => {
         tokens.next();
-        return Ok(List(list));
+        return Ok(List(*line, list));
       },
       Some(_) => {
         let sexpr = parse_sexpr(tokens)?;
         list.push(Box::new(sexpr));
       },
-      None => return Err(ParseError::MissingCloseParen),
+      None => return Err(ParseError::MissingCloseParen(line)),
     };
   }
   Err(ParseError::Unknown(2))
 }
-fn parse_stmt<'a,I>(tokens: &mut Peekable<I>) -> PResult
+fn parse_stmt<'a,I>(line: usize, tokens: &mut Peekable<I>) -> PResult
 where I: Iterator<Item=&'a Token>,
 {
   let mut list: Vec<Box<SExpr>> = vec![];
   loop {
     match tokens.peek() {
-      Some(Token::CPAREN) => {
+      Some(Token::CPAREN(line)) => {
         tokens.next();
-        return Ok(Stmt(list));
+        return Ok(Stmt(*line, list));
       },
       Some(_) => {
         let sexpr = parse_sexpr(tokens)?;
         list.push(Box::new(sexpr));
       },
-      None => return Err(ParseError::MissingCloseParen),
+      None => return Err(ParseError::MissingCloseParen(line)),
     };
   }
   Err(ParseError::Unknown(3))
 }
 
-fn parse_ident<'a,I>(tokens: &mut Peekable<I>) -> PResult
-where I: Iterator<Item=&'a Token>,
-{
-  Err(ParseError::Unknown(4))
-}
+//fn parse_ident<'a,I>(line: usize, tokens: &mut Peekable<I>) -> PResult
+//where I: Iterator<Item=&'a Token>,
+//{
+//  Err(ParseError::Unknown(4))
+//}
 
 fn first_analysis(ostmt: SExpr) -> PResult { // translate things like function declaration into their proper type
   match ostmt {
-    Stmt(stmt) => {
+    Stmt(line, stmt) => {
       if stmt[0].is_ident() && keywords.contains(&stmt[0].get_ident()) {
         match stmt[0].get_ident() {
           "fn" => {
             if stmt[1].is_ident() {
-              let var = Box::new(Ident("var".to_string()));
+              let var = Box::new(Ident(line, "var".to_string()));
               let name = stmt[1].clone();
               let fndec = stmt[0].clone();
               let args = stmt[2].clone();
               let body  = stmt[3].clone();
-              let func = Box::new(Func(args, body));
-              let res = Stmt(vec![var, name, func]);
+              let func = Box::new(Func(line, args, body));
+              let res = Stmt(line, vec![var, name, func]);
               Ok(res)
             }
             else {
               //let fndec = stmt[0].clone();
               let args = stmt[1].clone();
               let body  = stmt[2].clone();
-              let func = Func(args, body);
+              let func = Func(line, args, body);
               Ok(func)
             }
           },
-          id => {println!("{}",id); Err(ParseError::UnimplementedFeature)},
+          id => {println!("{}",id); Err(ParseError::UnimplementedFeature(line))},
         }
       }
       else {
-        Ok(Stmt(stmt))
+        Ok(Stmt(line, stmt))
       }
     },
     _ => Ok(ostmt),

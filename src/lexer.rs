@@ -11,26 +11,26 @@ pub enum LexError {
 
 #[derive(Debug)]
 pub enum Token {
-  OPAREN,
-  CPAREN,
-  OBRACKET,
-  CBRACKET,
-  OBRACE,
-  CBRACE,
-  INT(i64),
-  FLOAT(f64),
-  IDENT(String),
-  BOOL(bool),
-  STRLIT(String),
-  CHLIT(String),
-  SYMBOL(String),
+  OPAREN(usize),
+  CPAREN(usize),
+  OBRACKET(usize),
+  CBRACKET(usize),
+  OBRACE(usize),
+  CBRACE(usize),
+  INT(usize,i64),
+  FLOAT(usize,f64),
+  IDENT(usize,String),
+  BOOL(usize,bool),
+  STRLIT(usize,String),
+  CHLIT(usize,String),
+  SYMBOL(usize,String),
 }
 
 pub type Tokens = Vec<Token>;
 
 pub fn lex(src: &mut String) -> Result<Tokens, LexError> {
   let mut tokens: Tokens = vec![];
-  let mut line = 0;
+  let mut line = 1;
 
   let mut chars = src.chars().peekable();
 
@@ -40,12 +40,12 @@ pub fn lex(src: &mut String) -> Result<Tokens, LexError> {
     match oc.unwrap() {
       '\n'=> {line+=1;},
       ';' => {lex_comment(line, &mut chars);},
-      '(' => {tokens.push(Token::OPAREN);},
-      ')' => {tokens.push(Token::CPAREN);},
-      '[' => {tokens.push(Token::OBRACKET);},
-      ']' => {tokens.push(Token::CBRACKET);},
-      '{' => {tokens.push(Token::OBRACE);},
-      '}' => {tokens.push(Token::CBRACE);},
+      '(' => {tokens.push(Token::OPAREN(line));},
+      ')' => {tokens.push(Token::CPAREN(line));},
+      '[' => {tokens.push(Token::OBRACKET(line));},
+      ']' => {tokens.push(Token::CBRACKET(line));},
+      '{' => {tokens.push(Token::OBRACE(line));},
+      '}' => {tokens.push(Token::CBRACE(line));},
       //'.' => {tokens.push(Token::SYMBOL(".");}
       '\''=> {lex_char(line, &mut chars, &mut tokens);},
       '"' => {lex_str(line, &mut chars, &mut tokens);},
@@ -107,10 +107,10 @@ fn lex_num(line: usize, ic: char, chars: &mut Peekable<Chars>, tokens: &mut Toke
     }
   }
   if is_float {
-    tokens.push(Token::FLOAT(acc.parse::<f64>().unwrap()));
+    tokens.push(Token::FLOAT(line, acc.parse::<f64>().unwrap()));
   }
   else {
-    tokens.push(Token::INT(acc.parse::<i64>().unwrap()));
+    tokens.push(Token::INT(line, acc.parse::<i64>().unwrap()));
   }
   None
 }
@@ -131,7 +131,7 @@ fn lex_ident(line: usize, ic: char, chars: &mut Peekable<Chars>, tokens: &mut To
       oc = chars.peek();
     }
   }
-  tokens.push(Token::IDENT(acc));
+  tokens.push(Token::IDENT(line, acc));
   None
 }
 fn lex_char(line: usize, chars: &mut Peekable<Chars>, tokens: &mut Tokens) -> Option<LexError> {
@@ -157,7 +157,7 @@ fn lex_char(line: usize, chars: &mut Peekable<Chars>, tokens: &mut Tokens) -> Op
       oc = chars.next();
     }
   }
-  tokens.push(Token::CHLIT(acc));
+  tokens.push(Token::CHLIT(line, acc));
   None
 }
 fn lex_str(line: usize, chars: &mut Peekable<Chars>, tokens: &mut Tokens) -> Option<LexError> {
@@ -184,13 +184,13 @@ fn lex_str(line: usize, chars: &mut Peekable<Chars>, tokens: &mut Tokens) -> Opt
     }
   }
   if acc == "true" {
-    tokens.push(Token::BOOL(true));
+    tokens.push(Token::BOOL(line, true));
   }
   else if acc == "false" {
-    tokens.push(Token::BOOL(false));
+    tokens.push(Token::BOOL(line, false));
   }
   else {
-    tokens.push(Token::STRLIT(acc));
+    tokens.push(Token::STRLIT(line, acc));
   }
 
 
@@ -225,6 +225,6 @@ fn lex_symbol(line: usize, ic: char, chars: &mut Peekable<Chars>, tokens: &mut T
       oc = chars.peek();
     }
   }
-  tokens.push(Token::SYMBOL(acc));
+  tokens.push(Token::SYMBOL(line, acc));
   None
 }
