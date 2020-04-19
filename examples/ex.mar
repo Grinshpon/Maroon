@@ -1,0 +1,5 @@
+(print "hello world")
+
+(var x 5) ; comment
+
+(fn foo [x] (+ x a))
