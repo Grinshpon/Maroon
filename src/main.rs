@@ -8,6 +8,9 @@ use crate::lexer::*;
 pub mod parser;
 use crate::parser::*;
 
+pub mod genlua;
+use crate::genlua::*;
+
 fn main() {
   let args: Vec<String> = env::args().collect();
   if args.len() > 1 {

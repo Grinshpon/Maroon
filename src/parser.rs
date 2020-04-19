@@ -10,14 +10,41 @@ pub enum ParseError {
   UnimplementedFeature(usize),
 }
 
-const keywords: &'static [&'static str] = &[
+const KEYWORDS: &'static [&'static str] = &[
   "fn", "require", "set", "let", "var", "macro" //macros are on the todo list
 ];
-const builtins: &'static [&'static str] = &[
+const BUILTINS: &'static [&'static str] = &[
   ".", ":", "+", "-", "*", "/", "//", "^", "pow", "sqrt",
   "and", "or", "not", "==", "!=", "&&", "||", "!",
-  "print", "type"
+  "print", "type",
+  "do", "for", "while", "if", "then", "else", "end", // 'then', 'else', 'end' are not KEYWORDS but cannot be used for lua compat
 ];
+
+#[derive(Debug, Clone)]
+pub enum Std {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Pow,
+  Sqrt,
+  And,
+  Or,
+  Not,
+  Eq,
+  Neq,
+  Print,
+  Type,
+  Do,
+  For,
+  While,
+  If,
+  Let,
+  Set,
+  Var,
+  Dot, // . accessor
+  Col, // : accessor //TODO: transform idents with dot or color into accessors so `(print x.i)` => `(print (. x i))` =lua> `print(x[i])`
+}
 
 #[derive(Debug, Clone)]
 pub enum SExpr {
@@ -33,6 +60,7 @@ pub enum SExpr {
   Stmt(usize, Vec<Box<SExpr>>), // A list that is treated as a function invocation: ( ... )
   //SAST
   Func(usize, Box<SExpr>,Box<SExpr>),
+  Builtin(usize, Std),
   Module(Vec<Box<SExpr>>), // A list representing a program module
   Main(Vec<Box<SExpr>>), // A list representing the main module
   EOF,
@@ -142,13 +170,13 @@ where I: Iterator<Item=&'a Token>,
 fn first_analysis(ostmt: SExpr) -> PResult { // translate things like function declaration into their proper type
   match ostmt {
     Stmt(line, stmt) => {
-      if stmt[0].is_ident() && keywords.contains(&stmt[0].get_ident()) {
+      if stmt[0].is_ident() && KEYWORDS.contains(&stmt[0].get_ident()) {
         match stmt[0].get_ident() {
           "fn" => {
             if stmt[1].is_ident() {
               let var = Box::new(Ident(line, "var".to_string()));
               let name = stmt[1].clone();
-              let fndec = stmt[0].clone();
+              //let fndec = stmt[0].clone();
               let args = stmt[2].clone();
               let body  = stmt[3].clone();
               let func = Box::new(Func(line, args, body));
