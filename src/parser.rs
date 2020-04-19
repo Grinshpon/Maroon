@@ -10,9 +10,12 @@ pub enum ParseError {
 }
 
 const keywords: &'static [&'static str] = &[
-  "fn", "require", "set", "type", "var", "macro", //macros are on the todo list
+  "fn", "require", "set", "let", "var", "macro" //macros are on the todo list
+];
+const builtins: &'static [&'static str] = &[
   ".", ":", "+", "-", "*", "/", "//", "^", "pow", "sqrt",
   "and", "or", "not", "==", "!=", "&&", "||", "!",
+  "print", "type"
 ];
 
 #[derive(Debug)]
@@ -52,7 +55,7 @@ where I: Iterator<Item=&'a Token>,
 {
   match tokens.next() {
     Some(token) => match token {
-      Token::OPAREN => parse_stmt(tokens),
+      Token::OPAREN => parse_stmt(tokens), //stmt_parse(parse_stmt(tokens)),
       Token::OBRACKET => parse_list(tokens),
       Token::INT(n) => Ok(Int(*n)),
       Token::FLOAT(n) => Ok(Float(*n)),
@@ -106,4 +109,30 @@ where I: Iterator<Item=&'a Token>,
     };
   }
   Err(ParseError::Unknown(3))
+}
+
+fn parse_ident<'a,I>(tokens: &mut Peekable<I>) -> PResult
+where I: Iterator<Item=&'a Token>,
+{
+  Err(ParseError::Unknown(4))
+}
+
+fn stmt_parse(ostmt: PResult) -> PResult {
+  match ostmt {
+    Ok(Stmt(stmt)) => {
+      match &*stmt[0] {
+        Ident(id) => {
+          if keywords.contains(&id.as_str()) {
+            match id.as_str() {
+              "fn" => {},
+              _ => {},
+            }
+          }
+        },
+        _ => {},
+      };
+      Ok(Stmt(stmt))
+    },
+    _ => ostmt,
+  }
 }
