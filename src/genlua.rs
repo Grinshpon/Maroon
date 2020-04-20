@@ -8,7 +8,7 @@ pub enum GenError {
 use GenError::*;
 pub type GResult = Result<Module, GenError>;
 
-// simplified grammar for basic lua module
+// simplified grammar for basic lua module //TODO: if, while, do, for
 pub struct Module {
   name: String,
   stmts: Vec<Stmt>,
@@ -19,6 +19,10 @@ pub enum Stmt {
   VarDef(Def),
   VarAssign(Assign),
   FnRet(Ret),
+  CondIf(If),
+  CondWhile(While),
+  //CondFor(For), //TODO
+  DoBlock(Do),
 }
 
 pub struct App { //function application
@@ -46,6 +50,7 @@ pub enum Expr {
   Lit(Literal),
   FnDef(Func),
   Access(Index),
+  Op(Infix),
 }
 
 pub struct Func {
@@ -65,6 +70,31 @@ pub enum Literal {
   Str(String),
 }
 
+pub struct If {
+  cond: Expr,
+  then: Vec<Stmt>,
+  elseif: Vec<(Expr, Vec<Stmt>)>,
+  lelse: Vec<Stmt>,
+}
+
+pub struct While {
+  cond: Expr,
+  body: Vec<Stmt>,
+}
+
+//pub struct For {
+//}
+
+pub struct Do {
+  body: Vec<Stmt>,
+}
+
+pub struct Infix {
+  lhs: Box<Expr>,
+  rhs: Box<Expr>,
+  op: String,
+}
+
 impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut module = String::new();
@@ -82,6 +112,9 @@ impl fmt::Display for Stmt {
       Stmt::VarDef(def) => write!(f, "{}", def),
       Stmt::VarAssign(a)=> write!(f, "{}", a),
       Stmt::FnRet(r) => write!(f, "{}", r),
+      Stmt::CondIf(c) => write!(f, "{}", c),
+      Stmt::CondWhile(c) => write!(f, "{}", c),
+      Stmt::DoBlock(d) => write!(f, "{}", d),
     }
   }
 }
@@ -119,6 +152,7 @@ impl fmt::Display for Expr {
       Expr::Lit(l) => write!(f, "{}", l),
       Expr::FnDef(func) => write!(f, "{}", func),
       Expr::Access(i) => write!(f, "{}", i),
+      Expr::Op(op) => write!(f, "{}", op),
     }
   }
 }
@@ -158,7 +192,54 @@ impl fmt::Display for Literal {
     }
   }
 }
+impl fmt::Display for If {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut s = String::from("if ");
+    s = format!("{}{} then\n", s, self.cond);
+    for t in &self.then {
+      s = format!("{}{}\n",s,t);
+    }
+    if self.elseif.len() > 0 {
+      for (c,st) in &self.elseif {
+        s = format!("{}elseif {} then\n",s, c);
+        for t in st {
+          s = format!("{}{}\n",s,t);
+        }
+      }
+    }
+    if self.lelse.len() > 0 {
+      for t in &self.lelse {
+        s = format!("{}{}\n",s,t);
+      }
+    }
+    write!(f,"{}end ", s)
+  }
+}
+impl fmt::Display for While {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut s = String::from("while ");
+    s = format!("{}{} do\n", s, self.cond);
+    for t in &self.body {
+      s = format!("{}{}\n", s, t);
+    }
+    write!(f,"{}end",s)
+  }
+}
+impl fmt::Display for Do {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut s = String::from("do\n");
+    for t in &self.body {
+      s = format!("{}{}\n", s, t);
+    }
+    write!(f,"{}end",s)
+  }
+}
+impl fmt::Display for Infix {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, " ({}) {} ({}) ", self.lhs, self.op, self.rhs)
+  }
+}
 
 pub fn gen_lua(ast: SExpr) -> GResult {
-  Err(Unknown(1))
+  Err(Unknown(6))
 }
