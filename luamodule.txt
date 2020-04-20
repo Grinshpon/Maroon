@@ -1,0 +1,59 @@
+local foo = function(s)
+    print(s)
+end
+
+print(5)
+
+local x = 30
+
+x = 30/5
+
+foo(x)
+
+---------------------------------------------------------
+
+Module ::= Stmts
+
+Stmts ::=
+    | Stmt
+    | Stmt Stmts
+
+Stmt ::=
+    | FnCall
+    | Def
+    | Assign
+    | Ret
+
+FnCall ::= Ident Exprs
+
+Def ::=
+    | Name Expr
+
+Name ::=
+    | Ident //String
+
+Assign ::=
+    |Ident Expr
+
+Ret ::=
+    | Expr
+
+Exprs ::=
+    | Expr
+    | Expr Exprs
+
+Expr ::=
+    | FnCall
+    | Lit
+    | FnDef
+    | Access
+
+Lit ::= ... //literals
+
+FnDef ::=
+    | Args Stmts
+
+Args ::= Idents
+
+Access ::=
+  | Ident Expr //ident field

@@ -12,3 +12,8 @@ Maroon is a scheme-inspired lisp with a (WIP) backend that compiles to Lua.
     - [ ] Type Checking
 - [ ] Code Generation
   - [ ] Lua Backend
+    - [ ] AST Conversion
+    - [x] Printing
+- [ ] Error Handling
+  - [x] Error types
+  - [ ] Displaying Errors

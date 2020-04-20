@@ -1,4 +1,5 @@
 use std::iter::*;
+use std::collections::HashMap;
 
 use crate::lexer::*;
 
@@ -8,6 +9,7 @@ pub enum ParseError {
   MissingCloseParen(usize),
   ExtraCloseParen(usize),
   UnimplementedFeature(usize),
+  NotInScope(usize, String),
 }
 
 const KEYWORDS: &'static [&'static str] = &[
@@ -84,6 +86,46 @@ impl SExpr {
 pub type PResult = Result<SExpr, ParseError>;
 
 use SExpr::*;
+
+//macro_rules! hashmap {
+//  ( $( $key:expr => $val:expr ),* ) => {{
+//    let mut temp = HashMap::new();
+//    $(
+//      temp.insert($key,$val);
+//    )*
+//    temp
+//  }}
+//}
+pub struct Env<'a> {
+  data: HashMap<String, ()>,
+  outer: Option<&'a Env<'a>>,
+}
+impl <'a> Env<'a> {
+  fn default_env() -> Self {
+    let mut data = HashMap::new();
+    for i in BUILTINS {
+      data.insert(i.to_string(), ());
+    }
+    Env{data: data, outer: None}
+  }
+  fn in_scope(&self, id: &String) -> bool {
+    if self.data.contains_key(id) {
+      true
+    }
+    else {
+      let mut outer = &self.outer;
+      while outer.is_some() {
+        if outer.unwrap().data.contains_key(id) {
+          return true;
+        }
+        else {
+          outer = &outer.unwrap().outer;
+        }
+      }
+      false
+    }
+  }
+}
 
 pub fn parse(tokens: Tokens) -> PResult {
   let mut sexprs: Vec<Box<SExpr>> = vec![]; // top-level s-expressions
