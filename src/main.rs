@@ -22,7 +22,13 @@ fn main() {
       Ok(tokens) => {
         println!("{:?}\n", tokens);
         match parse(tokens) {
-          Ok(program) => {println!("{:?}\n",program);},
+          Ok(program) => {
+            println!("{:?}\n",program);
+            match gen_lua_module(String::from("result"), program) {
+              Ok(lua) => println!("{}",lua),
+              Err(err) => println!("{:?}", err),
+            }
+          },
           Err(err) => {println!("{:?}", err);},
         }
       },

@@ -2,18 +2,58 @@ use std::fmt;
 
 use crate::parser::*;
 
+#[derive(Debug)]
 pub enum GenError {
   Unknown(i32),
+  UnimplementedFeature(usize),
 }
 use GenError::*;
-pub type GResult = Result<Module, GenError>;
+pub type GResult = Result<LuaCode, GenError>;
 
 // simplified grammar for basic lua module //TODO: if, while, do, for
+pub enum LuaCode {
+  LuaModule(Module),
+  LuaStmt(Stmt),
+  LuaApp(App),
+  LuaDef(Def),
+  LuaAssign(Assign),
+  LuaRet(Ret),
+  LuaExpr(Expr),
+  LuaFunc(Func),
+  LuaIndex(Index),
+  LuaLiteral(Literal),
+  LuaIf(If),
+  LuaWhile(While),
+  //LuaFor(For),
+  LuaDo(Do),
+  LuaInfix(Infix),
+  LuaEmpty,
+}
+use LuaCode::*;
+
+impl LuaCode {
+  fn stmt(&self) -> Stmt {
+    match self {
+      LuaStmt(stmt) => stmt.clone(),
+      _ => panic!("code gen error"),
+    }
+  }
+  fn expr(&self) -> Expr {
+    match self {
+      LuaExpr(expr) => expr.clone(),
+      _ => panic!("code gen error"),
+    }
+  }
+}
+
+
+#[derive(Clone)]
 pub struct Module {
   name: String,
   stmts: Vec<Stmt>,
 }
 
+#[derive(Clone)]
 pub enum Stmt {
   FnCall(App),
   VarDef(Def),
@@ -25,25 +65,35 @@ pub enum Stmt {
   DoBlock(Do),
 }
 
+
+#[derive(Clone)]
 pub struct App { //function application
   ident: String,
   args: Vec<Expr>,
 }
 
+
+#[derive(Clone)]
 pub struct Def {
   ident: String,
   val: Expr,
 }
 
+
+#[derive(Clone)]
 pub struct Assign {
   ident: String,
   val: Expr,
 }
 
+
+#[derive(Clone)]
 pub struct Ret {
   val: Expr,
 }
 
+
+#[derive(Clone)]
 pub enum Expr {
   FnCall(App),
   Ident(String),
@@ -53,16 +103,22 @@ pub enum Expr {
   Op(Infix),
 }
 
+
+#[derive(Clone)]
 pub struct Func {
   params: Vec<String>,
   body: Vec<Stmt>,
 }
 
+
+#[derive(Clone)]
 pub struct Index {
   ident: String,
   field: Box<Expr>,
 }
 
+
+#[derive(Clone)]
 pub enum Literal {
   Int(i64),
   Float(f64),
@@ -70,6 +126,8 @@ pub enum Literal {
   Str(String),
 }
 
+
+#[derive(Clone)]
 pub struct If {
   cond: Expr,
   then: Vec<Stmt>,
@@ -77,23 +135,55 @@ pub struct If {
   lelse: Vec<Stmt>,
 }
 
+
+#[derive(Clone)]
 pub struct While {
   cond: Expr,
   body: Vec<Stmt>,
 }
 
+
+//#[derive(Clone)]
 //pub struct For {
 //}
 
+
+#[derive(Clone)]
 pub struct Do {
   body: Vec<Stmt>,
 }
 
+
+#[derive(Clone)]
 pub struct Infix {
   lhs: Box<Expr>,
   rhs: Box<Expr>,
   op: String,
 }
+
+
+impl fmt::Display for LuaCode {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      LuaModule(x) => x.fmt(f),
+      LuaStmt(x) => x.fmt(f),
+      LuaApp(x) => x.fmt(f),
+      LuaDef(x) => x.fmt(f),
+      LuaAssign(x) => x.fmt(f),
+      LuaRet(x) => x.fmt(f),
+      LuaExpr(x) => x.fmt(f),
+      LuaFunc(x) => x.fmt(f),
+      LuaIndex(x) => x.fmt(f),
+      LuaLiteral(x) => x.fmt(f),
+      LuaIf(x) => x.fmt(f),
+      LuaWhile(x) => x.fmt(f),
+      LuaDo(x) => x.fmt(f),
+      LuaInfix(x) => x.fmt(f),
+      LuaEmpty => write!(f, "")
+    }
+  }
+}
+
 
 impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -240,6 +330,77 @@ impl fmt::Display for Infix {
   }
 }
 
-pub fn gen_lua(ast: SExpr) -> GResult {
-  Err(Unknown(6))
+pub fn gen_lua_module(name: String, sexpr: SExpr) -> GResult {
+  match sexpr {
+    SExpr::Module(sexprs) => {
+      let stmts = {
+        let mut vec: Vec<Stmt> = vec![];
+        for s in sexprs {
+          vec.push(gen_lua_stmt(*s)?.stmt());
+        }
+        vec
+      };
+      Ok(LuaModule(Module{name: name, stmts: stmts}))
+    },
+    SExpr::Main(sexprs) => Err(UnimplementedFeature(0)),
+    _ => Err(Unknown(7)),
+  }
+}
+
+pub fn gen_lua_stmt(sexpr: SExpr) -> GResult {
+  match sexpr {
+    SExpr::Stmt(line, sexprs) => {
+      match &*sexprs[0] {
+        SExpr::Ident(line1, id) => {
+          let mut args: Vec<Expr> = vec![];
+          for s in &sexprs[1..] {
+            args.push(gen_lua_expr(*s.clone())?.expr());
+          }
+          Ok(LuaStmt(Stmt::FnCall(App{ident: id.clone(), args: args})))
+        },
+        _ => Err(UnimplementedFeature(line)),
+      }
+    },
+
+    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line)),
+    SExpr::EOF => Ok(LuaEmpty),
+    _ => Err(Unknown(8)),
+  }
+}
+
+pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
+  match sexpr {
+    SExpr::Int(line, i) => Ok(LuaExpr(Expr::Lit(Literal::Int(i)))),
+    SExpr::Float(line, f) => Ok(LuaExpr(Expr::Lit(Literal::Float(f)))),
+    SExpr::Bool(line, b) => Ok(LuaExpr(Expr::Lit(Literal::Bool(b)))),
+    SExpr::Str(line, s) => Ok(LuaExpr(Expr::Lit(Literal::Str(s)))),
+    SExpr::Char(line, s) => Ok(LuaExpr(Expr::Lit(Literal::Str(s)))),
+    SExpr::Ident(line, s) => Ok(LuaExpr(Expr::Ident(s))),
+    SExpr::List(line, sexprs) => Err(UnimplementedFeature(line)),
+    SExpr::Stmt(line, sexprs) => {
+      Err(UnimplementedFeature(line))
+    },
+    _ => Err(Unknown(9)),
+  }
+}
+
+pub fn gen_lua(sexpr: SExpr) -> GResult {
+  match sexpr {
+    SExpr::Int(line, i) => Ok(LuaLiteral(Literal::Int(i))),
+    SExpr::Float(line, f) => Ok(LuaLiteral(Literal::Float(f))),
+    SExpr::Bool(line, b) => Ok(LuaLiteral(Literal::Bool(b))),
+    SExpr::Str(line, s) => Ok(LuaLiteral(Literal::Str(s))),
+    SExpr::Char(line, s) => Ok(LuaLiteral(Literal::Str(s))),
+    SExpr::Ident(line, s) => Ok(LuaExpr(Expr::Ident(s))),
+    SExpr::Symbol(line, s) => Err(Unknown(6)), //todo
+    SExpr::List(line, sexprs) => Err(UnimplementedFeature(line)),
+    SExpr::Stmt(line, sexprs) => {
+      Err(UnimplementedFeature(line))
+    },
+
+    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line)),
+    SExpr::Builtin(line, Std) => Err(UnimplementedFeature(line)),
+    SExpr::EOF => Ok(LuaEmpty),
+    _ => Err(Unknown(8)),
+  }
 }
