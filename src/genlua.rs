@@ -22,6 +22,7 @@ pub enum LuaCode {
   LuaFunc(Func),
   LuaIndex(Index),
   LuaLiteral(Literal),
+  LuaList(Table<i64>),
   LuaIf(If),
   LuaWhile(While),
   //LuaFor(For),
@@ -124,8 +125,13 @@ pub enum Literal {
   Float(f64),
   Bool(bool),
   Str(String),
+  List(Table<i64>),
 }
 
+#[derive(Clone)]
+pub struct Table<K> {
+  pairs: Vec<(K,Expr)>,
+}
 
 #[derive(Clone)]
 pub struct If {
@@ -175,6 +181,7 @@ impl fmt::Display for LuaCode {
       LuaFunc(x) => x.fmt(f),
       LuaIndex(x) => x.fmt(f),
       LuaLiteral(x) => x.fmt(f),
+      LuaList(x) => x.fmt(f),
       LuaIf(x) => x.fmt(f),
       LuaWhile(x) => x.fmt(f),
       LuaDo(x) => x.fmt(f),
@@ -279,7 +286,18 @@ impl fmt::Display for Literal {
       Literal::Float(n) => write!(f, "{}", n),
       Literal::Bool(b) => write!(f, "{}", b),
       Literal::Str(s) => write!(f, "\"{}\"", s),
+      Literal::List(ls) => write!(f, "{}", ls),
     }
+  }
+}
+impl<K: fmt::Display> fmt::Display for Table<K> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut s = String::from("{");
+    for (k,v) in &self.pairs {
+      s = format!("{}[{}] = {},",s,k,v);
+    }
+    s.push('}');
+    write!(f,"{}",s)
   }
 }
 impl fmt::Display for If {
@@ -376,7 +394,14 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
     SExpr::Str(line, s) => Ok(LuaExpr(Expr::Lit(Literal::Str(s)))),
     SExpr::Char(line, s) => Ok(LuaExpr(Expr::Lit(Literal::Str(s)))),
     SExpr::Ident(line, s) => Ok(LuaExpr(Expr::Ident(s))),
-    SExpr::List(line, sexprs) => Err(UnimplementedFeature(line)),
+    SExpr::List(line, sexprs) => {
+      let mut ls: Vec<(i64, Expr)> = vec![];
+      let mut ix = 1;
+      for s in sexprs {
+        ls.push((ix,gen_lua_expr(*s.clone())?.expr()));
+      }
+      Ok(LuaExpr(Expr::Lit(Literal::List(Table{pairs: ls}))))
+    },
     SExpr::Stmt(line, sexprs) => {
       Err(UnimplementedFeature(line))
     },
