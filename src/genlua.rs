@@ -376,6 +376,14 @@ pub fn gen_lua_stmt(sexpr: SExpr) -> GResult {
           }
           Ok(LuaStmt(Stmt::FnCall(App{ident: id.clone(), args: args})))
         },
+        SExpr::Builtin(line1, std) => match std {
+          Std::Var => {
+            let id = sexprs[1].get_ident().to_string();
+            let expr = gen_lua_expr(*sexprs[2].clone())?.expr();
+            Ok(LuaStmt(Stmt::VarDef(Def{ident: id, val: expr}))) 
+          },
+          _ => Err(UnimplementedFeature(*line1)),
+        },
         _ => Err(UnimplementedFeature(line)),
       }
     },
@@ -405,6 +413,15 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
     SExpr::Stmt(line, sexprs) => {
       Err(UnimplementedFeature(line))
     },
+    SExpr::Func(line, args, body) => {
+      let mut params: Vec<String> = vec![];
+      for arg in &args.get_list() {
+        params.push(arg.get_ident().to_string());
+      }
+      let mut fbody: Vec<Stmt> = vec![];
+      // TODO
+      Ok(LuaExpr(Expr::FnDef(Func{params: params, body: fbody})))
+    },
     _ => Err(Unknown(9)),
   }
 }
@@ -424,7 +441,7 @@ pub fn gen_lua(sexpr: SExpr) -> GResult {
     },
 
     SExpr::Func(line, args, body) => Err(UnimplementedFeature(line)),
-    SExpr::Builtin(line, Std) => Err(UnimplementedFeature(line)),
+    SExpr::Builtin(line, std) => Err(UnimplementedFeature(line)),
     SExpr::EOF => Ok(LuaEmpty),
     _ => Err(Unknown(8)),
   }

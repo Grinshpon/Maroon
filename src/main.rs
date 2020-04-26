@@ -17,7 +17,7 @@ fn main() {
     let mut file = File::open(args[1].clone()).expect("Unable to open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Unable to read file");
-    //println!("{}", contents);
+    println!("{}\n", contents);
     match lex(&mut contents) {
       Ok(tokens) => {
         println!("{:?}\n", tokens);

@@ -1,0 +1,3 @@
+(fn foo [x]
+  (var y 1)
+  (+ x y))

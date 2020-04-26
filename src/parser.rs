@@ -69,16 +69,28 @@ pub enum SExpr {
 }
 
 impl SExpr {
-  fn is_ident(&self) -> bool {
+  pub fn is_ident(&self) -> bool {
     match self {
       Ident(_,_) => true,
       _ => false,
     }
   }
-  fn get_ident(&self) -> &str {
+  pub fn get_ident(&self) -> &str {
     match self {
       Ident(_,id) => id.as_str(),
       _ => panic!("Not ident"),
+    }
+  }
+  pub fn is_list(&self) -> bool {
+    match self {
+      List(_,_) => true,
+      _ => false,
+    }
+  }
+  pub fn get_list(&self) -> Vec<Box<SExpr>> {
+    match self {
+      List(_,v) => v.to_vec(),
+      _ => panic!("Not list"),
     }
   }
 }
@@ -150,7 +162,7 @@ where I: Iterator<Item=&'a Token>,
       Token::OBRACKET(line) => parse_list(*line, tokens),
       Token::INT(line, n) => Ok(Int(*line, *n)),
       Token::FLOAT(line, n) => Ok(Float(*line, *n)),
-      Token::IDENT(line, i) => Ok(Ident(*line, i.to_string())), // parse_ident (var or fn or whatever)
+      Token::IDENT(line, i) => parse_ident(*line, i.to_string()),
       Token::BOOL(line, b) => Ok(Bool(*line, *b)),
       Token::STRLIT(line, s) => Ok(Str(*line, s.to_string())),
       Token::CHLIT(line, c) => Ok(Char(*line, c.to_string())),
@@ -203,11 +215,14 @@ where I: Iterator<Item=&'a Token>,
   Err(ParseError::Unknown(3))
 }
 
-//fn parse_ident<'a,I>(line: usize, tokens: &mut Peekable<I>) -> PResult
-//where I: Iterator<Item=&'a Token>,
-//{
-//  Err(ParseError::Unknown(4))
-//}
+fn parse_ident(line: usize, id: String) -> PResult {
+  match &id[..] {
+    "let" => Ok(Builtin(line, Std::Let)),
+    "var" => Ok(Builtin(line, Std::Var)),
+    "set" => Ok(Builtin(line, Std::Set)),
+    _ => Ok(Ident(line, id)),
+  }
+}
 
 fn first_analysis(ostmt: SExpr) -> PResult { // translate things like function declaration into their proper type
   match ostmt {
@@ -216,11 +231,22 @@ fn first_analysis(ostmt: SExpr) -> PResult { // translate things like function d
         match stmt[0].get_ident() {
           "fn" => {
             if stmt[1].is_ident() {
-              let var = Box::new(Ident(line, "var".to_string()));
+              let var = Box::new(Builtin(line, Std::Var));
               let name = stmt[1].clone();
               //let fndec = stmt[0].clone();
               let args = stmt[2].clone();
-              let body  = stmt[3].clone();
+              let body = {
+                if stmt.len() == 4 {
+                  stmt[3].clone()
+                }
+                else {
+                  let mut l = vec![];
+                  for s in &stmt[3..] {
+                    l.push(s.clone());
+                  }
+                  Box::new(List(line, l))
+                }
+              };
               let func = Box::new(Func(line, args, body));
               let res = Stmt(line, vec![var, name, func]);
               Ok(res)
