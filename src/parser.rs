@@ -60,7 +60,8 @@ pub enum SExpr {
   Symbol(usize, String),
   List(usize, Vec<Box<SExpr>>), // A list that is treated as a list/table/vector: [ ... ]
   Stmt(usize, Vec<Box<SExpr>>), // A list that is treated as a function invocation: ( ... )
-  //SAST
+
+  StLs(usize, Vec<Box<SExpr>>), // A statement list, used in function bodies
   Func(usize, Box<SExpr>,Box<SExpr>),
   Builtin(usize, Std),
   Module(Vec<Box<SExpr>>), // A list representing a program module
@@ -244,7 +245,7 @@ fn first_analysis(ostmt: SExpr) -> PResult { // translate things like function d
                   for s in &stmt[3..] {
                     l.push(s.clone());
                   }
-                  Box::new(List(line, l))
+                  Box::new(StLs(line, l))
                 }
               };
               let func = Box::new(Func(line, args, body));

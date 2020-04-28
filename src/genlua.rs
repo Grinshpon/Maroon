@@ -5,7 +5,8 @@ use crate::parser::*;
 #[derive(Debug)]
 pub enum GenError {
   Unknown(i32),
-  UnimplementedFeature(usize),
+  UnimplementedFeature(usize, i32),
+  FunctionBodyError(usize),
 }
 use GenError::*;
 pub type GResult = Result<LuaCode, GenError>;
@@ -360,7 +361,7 @@ pub fn gen_lua_module(name: String, sexpr: SExpr) -> GResult {
       };
       Ok(LuaModule(Module{name: name, stmts: stmts}))
     },
-    SExpr::Main(sexprs) => Err(UnimplementedFeature(0)),
+    SExpr::Main(sexprs) => Err(UnimplementedFeature(0,1)),
     _ => Err(Unknown(7)),
   }
 }
@@ -382,13 +383,13 @@ pub fn gen_lua_stmt(sexpr: SExpr) -> GResult {
             let expr = gen_lua_expr(*sexprs[2].clone())?.expr();
             Ok(LuaStmt(Stmt::VarDef(Def{ident: id, val: expr}))) 
           },
-          _ => Err(UnimplementedFeature(*line1)),
+          _ => Err(UnimplementedFeature(*line1,2)),
         },
-        _ => Err(UnimplementedFeature(line)),
+        _ => Err(UnimplementedFeature(line,3)),
       }
     },
 
-    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line)),
+    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line,4)),
     SExpr::EOF => Ok(LuaEmpty),
     _ => Err(Unknown(8)),
   }
@@ -411,7 +412,7 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
       Ok(LuaExpr(Expr::Lit(Literal::List(Table{pairs: ls}))))
     },
     SExpr::Stmt(line, sexprs) => {
-      Err(UnimplementedFeature(line))
+      Err(UnimplementedFeature(line,5))
     },
     SExpr::Func(line, args, body) => {
       let mut params: Vec<String> = vec![];
@@ -420,6 +421,15 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
       }
       let mut fbody: Vec<Stmt> = vec![];
       // TODO
+      match &*body {
+        SExpr::Stmt(_,_) => fbody.push(gen_lua_stmt(*body)?.stmt()),
+        SExpr::StLs(_, stmts) => {
+          for s in stmts {
+            fbody.push(gen_lua_stmt(*s.clone())?.stmt());
+          }
+        },
+        _ => return Err(FunctionBodyError(line)),
+      }
       Ok(LuaExpr(Expr::FnDef(Func{params: params, body: fbody})))
     },
     _ => Err(Unknown(9)),
@@ -435,13 +445,13 @@ pub fn gen_lua(sexpr: SExpr) -> GResult {
     SExpr::Char(line, s) => Ok(LuaLiteral(Literal::Str(s))),
     SExpr::Ident(line, s) => Ok(LuaExpr(Expr::Ident(s))),
     SExpr::Symbol(line, s) => Err(Unknown(6)), //todo
-    SExpr::List(line, sexprs) => Err(UnimplementedFeature(line)),
+    SExpr::List(line, sexprs) => Err(UnimplementedFeature(line,6)),
     SExpr::Stmt(line, sexprs) => {
-      Err(UnimplementedFeature(line))
+      Err(UnimplementedFeature(line,7))
     },
 
-    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line)),
-    SExpr::Builtin(line, std) => Err(UnimplementedFeature(line)),
+    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line,8)),
+    SExpr::Builtin(line, std) => Err(UnimplementedFeature(line,9)),
     SExpr::EOF => Ok(LuaEmpty),
     _ => Err(Unknown(8)),
   }

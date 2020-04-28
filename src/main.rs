@@ -26,13 +26,13 @@ fn main() {
             println!("{:?}\n",program);
             match gen_lua_module(String::from("result"), program) {
               Ok(lua) => println!("{}",lua),
-              Err(err) => println!("{:?}", err),
+              Err(err) => println!("Code Gen Error: {:?}", err),
             }
           },
-          Err(err) => {println!("{:?}", err);},
+          Err(err) => {println!("Parse Error: {:?}", err);},
         }
       },
-      Err(err) => {println!("{:?}", err);}
+      Err(err) => {println!("Lex Error: {:?}", err);}
     }
   }
   else {
