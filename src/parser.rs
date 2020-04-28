@@ -20,7 +20,7 @@ const BUILTINS: &'static [&'static str] = &[
   "and", "or", "not", "==", "!=", "&&", "||", "!",
   "print", "type",
   "do", "for", "while", "if", "then", "else", "end", // 'then', 'else', 'end' are not KEYWORDS but cannot be used for lua compat
-];
+];//todo: bitwise operators
 
 #[derive(Debug, Clone)]
 pub enum Std {
@@ -35,6 +35,10 @@ pub enum Std {
   Not,
   Eq,
   Neq,
+  Gt, //greater than
+  Geq,
+  Lt, //less than
+  Leq,
   Print,
   Type,
   Do,
@@ -109,36 +113,38 @@ use SExpr::*;
 //    temp
 //  }}
 //}
-pub struct Env<'a> {
-  data: HashMap<String, ()>,
-  outer: Option<&'a Env<'a>>,
-}
-impl <'a> Env<'a> {
-  fn default_env() -> Self {
-    let mut data = HashMap::new();
-    for i in BUILTINS {
-      data.insert(i.to_string(), ());
-    }
-    Env{data: data, outer: None}
-  }
-  fn in_scope(&self, id: &String) -> bool {
-    if self.data.contains_key(id) {
-      true
-    }
-    else {
-      let mut outer = &self.outer;
-      while outer.is_some() {
-        if outer.unwrap().data.contains_key(id) {
-          return true;
-        }
-        else {
-          outer = &outer.unwrap().outer;
-        }
-      }
-      false
-    }
-  }
-}
+
+//default Env should have math, os, table, etc (std lua lib)
+//pub struct Env<'a> {
+//  data: HashMap<String, ()>,
+//  outer: Option<&'a Env<'a>>,
+//}
+//impl <'a> Env<'a> {
+//  fn default_env() -> Self {
+//    let mut data = HashMap::new();
+//    for i in BUILTINS {
+//      data.insert(i.to_string(), ());
+//    }
+//    Env{data: data, outer: None}
+//  }
+//  fn in_scope(&self, id: &String) -> bool {
+//    if self.data.contains_key(id) {
+//      true
+//    }
+//    else {
+//      let mut outer = &self.outer;
+//      while outer.is_some() {
+//        if outer.unwrap().data.contains_key(id) {
+//          return true;
+//        }
+//        else {
+//          outer = &outer.unwrap().outer;
+//        }
+//      }
+//      false
+//    }
+//  }
+//}
 
 pub fn parse(tokens: Tokens) -> PResult {
   let mut sexprs: Vec<Box<SExpr>> = vec![]; // top-level s-expressions
@@ -167,7 +173,7 @@ where I: Iterator<Item=&'a Token>,
       Token::BOOL(line, b) => Ok(Bool(*line, *b)),
       Token::STRLIT(line, s) => Ok(Str(*line, s.to_string())),
       Token::CHLIT(line, c) => Ok(Char(*line, c.to_string())),
-      Token::SYMBOL(line, s) => Ok(Symbol(*line, s.to_string())),
+      Token::SYMBOL(line, s) => parse_symbol(*line, s.to_string()),
       Token::CPAREN(line) => Err(ParseError::ExtraCloseParen(*line)),
       Token::CBRACKET(line) => Err(ParseError::ExtraCloseParen(*line)),
       _ => Err(ParseError::Unknown(1)),
@@ -221,7 +227,41 @@ fn parse_ident(line: usize, id: String) -> PResult {
     "let" => Ok(Builtin(line, Std::Let)),
     "var" => Ok(Builtin(line, Std::Var)),
     "set" => Ok(Builtin(line, Std::Set)),
+    "if"  => Ok(Builtin(line, Std::If)),
+    "do"  => Ok(Builtin(line, Std::Do)),
+    "for" => Ok(Builtin(line, Std::For)),
+    "while" => Ok(Builtin(line, Std::While)),
+    "and" => Ok(Builtin(line, Std::And)),
+    "or"  => Ok(Builtin(line, Std::Or)),
+    "not" => Ok(Builtin(line, Std::Not)),
+    "add" => Ok(Builtin(line, Std::Add)),
+    "sub" => Ok(Builtin(line, Std::Sub)),
+    "mul" => Ok(Builtin(line, Std::Mul)),
+    "div" => Ok(Builtin(line, Std::Div)),
+    "pow" => Ok(Builtin(line, Std::Pow)),
+    "sqrt" => Ok(Builtin(line, Std::Sqrt)),
     _ => Ok(Ident(line, id)),
+  }
+}
+fn parse_symbol(line: usize, id: String) -> PResult {
+  match &id[..] {
+    "."  => Ok(Builtin(line, Std::Dot)),
+    ":"  => Ok(Builtin(line, Std::Col)),
+    "&&" => Ok(Builtin(line, Std::And)),
+    "||" => Ok(Builtin(line, Std::Or)),
+    "!"  => Ok(Builtin(line, Std::Not)),
+    "==" => Ok(Builtin(line, Std::Eq)),
+    "!=" => Ok(Builtin(line, Std::Neq)),
+    ">"  => Ok(Builtin(line, Std::Gt)),
+    ">=" => Ok(Builtin(line, Std::Geq)),
+    "<"  => Ok(Builtin(line, Std::Lt)),
+    "<=" => Ok(Builtin(line, Std::Leq)),
+    "+"  => Ok(Builtin(line, Std::Add)),
+    "-"  => Ok(Builtin(line, Std::Sub)),
+    "*"  => Ok(Builtin(line, Std::Mul)),
+    "/"  => Ok(Builtin(line, Std::Div)),
+    "^"  => Ok(Builtin(line, Std::Pow)),
+    _ => Ok(Symbol(line, id)),
   }
 }
 

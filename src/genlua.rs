@@ -421,7 +421,28 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
       Ok(LuaExpr(Expr::Lit(Literal::List(Table{pairs: ls}))))
     },
     SExpr::Stmt(line, sexprs) => {
-      Err(UnimplementedFeature(line,5))
+      match &*sexprs[0] {
+        SExpr::Ident(line1, id) => {
+          let mut args: Vec<Expr> = vec![];
+          for s in &sexprs[1..] {
+            args.push(gen_lua_expr(*s.clone())?.expr());
+          }
+          Ok(LuaExpr(Expr::FnCall(App{ident: id.clone(), args: args})))
+        },
+        SExpr::Builtin(line1, std) => match std {
+          Std::Dot => Ok(LuaExpr(Expr::Access(Index{ident: sexprs[1].get_ident().to_string(), field: Box::new(gen_lua_expr(*sexprs[2].clone())?.expr())}))),
+          _ => Err(UnimplementedFeature(*line1,5)),
+        },
+        SExpr::Symbol(line1, op) => {
+          let mut args: Vec<Expr> = vec![];
+          for s in &sexprs[1..] {
+            args.push(gen_lua_expr(*s.clone())?.expr());
+          }
+          let op = Expr::Op(Infix{lhs: Box::new(args[0].clone()), rhs: Box::new(args[1].clone()), op: op.to_string()}); //TODO: variadic operations
+          Ok(LuaExpr(op))
+        },
+        _ => Err(UnimplementedFeature(line,6)),
+      }
     },
     SExpr::Func(line, args, body) => {
       let mut params: Vec<String> = vec![];
