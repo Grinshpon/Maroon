@@ -416,6 +416,7 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
       let mut ix = 1;
       for s in sexprs {
         ls.push((ix,gen_lua_expr(*s.clone())?.expr()));
+        ix += 1;
       }
       Ok(LuaExpr(Expr::Lit(Literal::List(Table{pairs: ls}))))
     },

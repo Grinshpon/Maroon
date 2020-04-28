@@ -18,16 +18,16 @@ fn main() {
     let mut file = File::open(args[1].clone()).expect("Unable to open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Unable to read file");
-    //println!("{}\n", contents);
+    println!("{}\n", contents);
     match lex(&mut contents) {
       Ok(tokens) => {
-        //println!("{:?}\n", tokens);
+        println!("{:?}\n", tokens);
         match parse(tokens) {
           Ok(program) => {
-            //println!("{:?}\n",program);
+            println!("{:?}\n",program);
             match gen_lua_module(String::from("result"), program) {
               Ok(lua) => {
-                //println!("{}",lua)
+                println!("{}",lua);
                 let mut result = OpenOptions::new()
                               .write(true)
                               .create(true)
