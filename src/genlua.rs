@@ -367,7 +367,7 @@ pub fn gen_lua_module(name: String, sexpr: SExpr) -> GResult {
 }
 
 pub fn gen_lua_stmt(sexpr: SExpr) -> GResult {
-  match sexpr {
+  match &sexpr {
     SExpr::Stmt(line, sexprs) => {
       match &*sexprs[0] {
         SExpr::Ident(line1, id) => {
@@ -385,13 +385,21 @@ pub fn gen_lua_stmt(sexpr: SExpr) -> GResult {
           },
           _ => Err(UnimplementedFeature(*line1,2)),
         },
-        _ => Err(UnimplementedFeature(line,3)),
+        SExpr::Symbol(line1, op) => {
+          let mut args: Vec<Expr> = vec![];
+          for s in &sexprs[1..] {
+            args.push(gen_lua_expr(*s.clone())?.expr());
+          }
+          let ret = Ret{val: Expr::Op(Infix{lhs: Box::new(args[0].clone()), rhs: Box::new(args[1].clone()), op: op.to_string()})}; //TODO: variadic operations
+          Ok(LuaStmt(Stmt::FnRet(ret)))
+        },
+        _ => Err(UnimplementedFeature(*line,3)),
       }
     },
 
-    SExpr::Func(line, args, body) => Err(UnimplementedFeature(line,4)),
+    SExpr::Func(line, args, body) => Err(UnimplementedFeature(*line,4)),
     SExpr::EOF => Ok(LuaEmpty),
-    _ => Err(Unknown(8)),
+    s => Ok(LuaStmt(Stmt::FnRet(Ret{val: gen_lua_expr(s.clone())?.expr()}))),
   }
 }
 
@@ -422,13 +430,12 @@ pub fn gen_lua_expr(sexpr: SExpr) -> GResult {
       let mut fbody: Vec<Stmt> = vec![];
       // TODO
       match &*body {
-        SExpr::Stmt(_,_) => fbody.push(gen_lua_stmt(*body)?.stmt()),
         SExpr::StLs(_, stmts) => {
           for s in stmts {
             fbody.push(gen_lua_stmt(*s.clone())?.stmt());
           }
         },
-        _ => return Err(FunctionBodyError(line)),
+        _ => fbody.push(gen_lua_stmt(*body)?.stmt()),
       }
       Ok(LuaExpr(Expr::FnDef(Func{params: params, body: fbody})))
     },
